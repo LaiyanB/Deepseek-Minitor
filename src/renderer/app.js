@@ -109,7 +109,8 @@ const el = {
   eventsBody: document.querySelector("#events-body"),
   modelBars: document.querySelector("#model-bars"),
   expensiveList: document.querySelector("#expensive-list"),
-  baseUrl: document.querySelector("#base-url"),
+  baseUrlProvider: document.querySelector("#base-url-provider"),
+  baseUrlCustom: document.querySelector("#base-url-custom"),
   proxyPort: document.querySelector("#proxy-port"),
   dailyBudget: document.querySelector("#daily-budget"),
   language: document.querySelector("#language"),
@@ -157,10 +158,19 @@ el.settingsMonitorThemeToggle.addEventListener("click", () => {
   void toggleMonitorTheme();
 });
 
+el.baseUrlProvider.addEventListener("change", () => {
+  const showCustom = el.baseUrlProvider.value === "__custom__";
+  el.baseUrlCustom.style.display = showCustom ? "block" : "none";
+  if (showCustom) el.baseUrlCustom.focus();
+});
+
 el.settingsSave.addEventListener("click", async () => {
+  const baseUrl = el.baseUrlProvider.value === "__custom__"
+    ? el.baseUrlCustom.value.trim()
+    : el.baseUrlProvider.value;
   snapshot = await window.deepseekMonitor.saveSettings({
     ...snapshot.settings,
-    deepseekBaseUrl: el.baseUrl.value.trim(),
+    deepseekBaseUrl: baseUrl,
     proxyPort: Number(el.proxyPort.value),
     dailyBudgetCny: Number(el.dailyBudget.value),
     language: el.language.value,
@@ -319,7 +329,16 @@ function renderExpensiveRequests() {
 }
 
 function renderSettings() {
-  el.baseUrl.value = snapshot.settings.deepseekBaseUrl;
+  const url = snapshot.settings.deepseekBaseUrl;
+  const option = el.baseUrlProvider?.options ? Array.from(el.baseUrlProvider.options).find((o) => o.value === url) : null;
+  if (option) {
+    el.baseUrlProvider.value = url;
+    el.baseUrlCustom.style.display = "none";
+  } else {
+    el.baseUrlProvider.value = "__custom__";
+    el.baseUrlCustom.value = url;
+    el.baseUrlCustom.style.display = "block";
+  }
   el.proxyPort.value = String(snapshot.settings.proxyPort);
   el.dailyBudget.value = String(snapshot.settings.dailyBudgetCny);
   el.language.value = snapshot.settings.language ?? "zh-CN";

@@ -104,7 +104,20 @@
           <div class="form-grid">
             <label>
               <span data-i18n="baseUrl">Base URL</span>
-              <input id="base-url" type="url" />
+              <select id="base-url-provider">
+                <option value="https://api.deepseek.com">DeepSeek 官方</option>
+                <option value="https://api.siliconflow.cn/v1">硅基流动</option>
+                <option value="https://dashscope.aliyuncs.com/compatible-mode/v1">阿里云百炼</option>
+                <option value="https://ark.cn-beijing.volces.com/api/v3">火山引擎</option>
+                <option value="https://api.lkeap.cloud.tencent.com/v1">腾讯云</option>
+                <option value="https://qianfan.baidubce.com/v2">百度千帆</option>
+                <option value="https://openrouter.ai/api/v1">OpenRouter</option>
+                <option value="https://api.fireworks.ai/inference/v1">Fireworks AI</option>
+                <option value="https://api.together.xyz/v1">Together AI</option>
+                <option value="https://api.replicate.com/v1">Replicate</option>
+                <option value="__custom__">自定义...</option>
+              </select>
+              <input id="base-url-custom" type="url" placeholder="输入自定义 Base URL" style="display:none" />
             </label>
             <label>
               <span data-i18n="localPort">本地端口</span>
