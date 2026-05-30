@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Menu, Notification, Tray, globalShortcut, ipcMain, nativeImage } from "electron";
 import type { Server } from "node:http";
 import { join } from "node:path";
+import { networkInterfaces } from "node:os";
 import { ConfigStore, type AppSettings } from "./core/config-store";
 import { createMonitorStats } from "./core/monitor-stats";
 import { applyMonitorClickThroughLock } from "./core/monitor-window-lock";
@@ -302,7 +303,7 @@ async function startProxy(): Promise<ProxyState> {
 
   await new Promise<void>((resolve, reject) => {
     proxyServer?.once("error", reject);
-    proxyServer?.listen(settings.proxyPort, "127.0.0.1", () => resolve());
+    proxyServer?.listen(settings.proxyPort, "0.0.0.0", () => resolve());
   });
 
   updateTrayMenu();
@@ -325,6 +326,18 @@ async function stopProxy(): Promise<ProxyState> {
   return getProxyState();
 }
 
+function getLanIp(): string {
+  const nets = networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name] ?? []) {
+      if (net.family === "IPv4" && !net.internal) {
+        return net.address;
+      }
+    }
+  }
+  return "127.0.0.1";
+}
+
 function getProxyState(): ProxyState {
   const address = proxyServer?.address();
   const port = typeof address === "object" && address ? address.port : settings?.proxyPort ?? 8716;
@@ -332,7 +345,7 @@ function getProxyState(): ProxyState {
   return {
     running: Boolean(proxyServer?.listening),
     port,
-    url: `http://127.0.0.1:${port}`
+    url: `http://${getLanIp()}:${port}`
   };
 }
 

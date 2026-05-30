@@ -30,8 +30,9 @@ export function createProxyServer(options: ProxyServerOptions): Server {
   return createServer(async (clientRequest, clientResponse) => {
     if (clientRequest.method === "GET" && (clientRequest.url === "/" || clientRequest.url === "/health")) {
       const capturedRequests = (await options.store.list()).length;
+      const host = clientRequest.headers.host ?? "127.0.0.1:8716";
       clientResponse.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-      clientResponse.end(createStatusPage(options.language ?? "zh-CN", capturedRequests));
+      clientResponse.end(createStatusPage(options.language ?? "zh-CN", capturedRequests, host));
       return;
     }
 
@@ -54,7 +55,7 @@ export function createProxyServer(options: ProxyServerOptions): Server {
   });
 }
 
-function createStatusPage(language: AppLanguage, capturedRequests: number): string {
+function createStatusPage(language: AppLanguage, capturedRequests: number, host: string): string {
   const zh = language === "zh-CN";
   const title = "DeepSeek Usage Monitor";
   const running = zh ? "代理正在运行。" : "Proxy is running.";
@@ -122,7 +123,7 @@ function createStatusPage(language: AppLanguage, capturedRequests: number): stri
       <p><strong>${running}</strong></p>
       <p><strong>${captured}</strong></p>
       <p>${description.replace("/v1/*", "<code>/v1/*</code>")}</p>
-      <code>http://127.0.0.1:8716</code>
+      <code>http://${host}</code>
       <p>${notCaptured}</p>
       <p>${hint.replace("Ctrl+Alt+D", "<strong>Ctrl+Alt+D</strong>")}</p>
     </main>
