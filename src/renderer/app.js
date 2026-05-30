@@ -248,9 +248,12 @@ function renderLanguage() {
 }
 
 function renderSummary() {
-  el.todayCost.textContent = money(snapshot.summary.todayCostCny);
-  el.monthCost.textContent = money(snapshot.summary.monthCostCny);
-  el.todayRequests.textContent = `${snapshot.summary.todayRequests} ${t("requests")}`;
+  const sum = snapshot.summary;
+  el.todayCost.textContent = money(sum.todayCostCny);
+  el.todayCost.title = `≈ ${moneyUsd(sum.todayCostCny / USD_RATE)}`;
+  el.monthCost.textContent = money(sum.monthCostCny);
+  el.monthCost.title = `≈ ${moneyUsd(sum.monthCostCny / USD_RATE)}`;
+  el.todayRequests.textContent = `${sum.todayRequests} ${t("requests")}`;
   el.monthRequests.textContent = `${snapshot.summary.monthRequests} ${t("requests")}`;
   el.todayTokens.textContent = integer(snapshot.summary.todayTokens);
   el.monthTokens.textContent =
@@ -389,8 +392,14 @@ function renderThemeSwitch(button, isDark) {
   button.setAttribute("aria-checked", String(isDark));
 }
 
+const USD_RATE = 7.2;
+
 function money(value) {
   return `¥${Number(value ?? 0).toFixed(4)}`;
+}
+
+function moneyUsd(value) {
+  return `$${Number(value ?? 0).toFixed(4)}`;
 }
 
 function language() {

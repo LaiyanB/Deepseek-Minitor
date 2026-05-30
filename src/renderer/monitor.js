@@ -149,6 +149,7 @@ function renderMonitor() {
   renderLockState();
   monitorEl.status.textContent = monitorSnapshot.proxy.running ? mt("running") : mt("stopped");
   monitorEl.cost.textContent = money(stats.todayCostCny);
+  monitorEl.cost.title = `≈ ${moneyUsd(stats.todayCostCny / USD_RATE)}`;
   monitorEl.hitRate.textContent = percent(stats.cacheHitRate);
   monitorEl.tokens.textContent = integer(stats.todayTokens);
   monitorEl.requests.textContent = integer(stats.todayRequests);
@@ -331,8 +332,14 @@ function renderModelBreakdown(rows) {
     .join("");
 }
 
+const USD_RATE = 7.2;
+
 function money(value) {
-  return `\u00A5${Number(value ?? 0).toFixed(4)}`;
+  return `¥${Number(value ?? 0).toFixed(4)}`;
+}
+
+function moneyUsd(value) {
+  return `$${Number(value ?? 0).toFixed(4)}`;
 }
 
 function integer(value) {
@@ -340,7 +347,7 @@ function integer(value) {
 }
 
 function percent(value) {
-  return `${(Number(value ?? 0) * 100).toFixed(1)}%`;
+  return `${(Number(value ?? 0) * 100).toFixed(2)}%`;
 }
 
 function shortModel(model) {
