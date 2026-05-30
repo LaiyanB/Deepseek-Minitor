@@ -140,7 +140,17 @@ async function forwardRequest(
   startedAt: number
 ): Promise<void> {
   const baseUrl = new URL(options.deepseekBaseUrl);
-  const upstreamUrl = new URL(clientRequest.url ?? "/", baseUrl);
+  let basePath = baseUrl.pathname.replace(/\/+$/, "");
+  let incomingPath = clientRequest.url ?? "/";
+  // If base has a path (e.g. /zen/go/v1), strip any leading segment
+  // from the incoming path that duplicates the last segment of base
+  if (basePath) {
+    const baseLast = basePath.split("/").pop();
+    if (baseLast && incomingPath.startsWith("/" + baseLast + "/")) {
+      incomingPath = incomingPath.slice(("/" + baseLast).length);
+    }
+  }
+  const upstreamUrl = new URL(basePath + incomingPath, baseUrl.origin);
   const transport = upstreamUrl.protocol === "https:" ? httpsRequest : httpRequest;
   const headers = { ...clientRequest.headers };
   delete headers.host;
