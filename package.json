@@ -1,0 +1,29 @@
+{
+  "name": "deepseek-usage-monitor",
+  "version": "0.1.0",
+  "description": "Windows-first desktop tray monitor for DeepSeek API usage.",
+  "main": "dist/src/main/main.js",
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-renderer.cjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "smoke": "npm run build && electron . --smoke-test",
+    "start": "npm run build && electron .",
+    "dev": "npm run build && electron ."
+  },
+  "keywords": [
+    "deepseek",
+    "usage",
+    "monitor",
+    "electron"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "electron": "^39.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "^4.0.0"
+  }
+}

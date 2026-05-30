@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DeepSeek 用量监视器</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1 data-i18n="appTitle">DeepSeek 用量监视器</h1>
+          <div class="proxy-url-row">
+            <p id="proxy-url">http://127.0.0.1:8716</p>
+            <button id="proxy-copy" class="copy-button" type="button">复制 URL</button>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <span id="proxy-pill" class="status-pill">已停止</span>
+          <button id="dashboard-theme-toggle" class="theme-switch" type="button" role="switch" aria-checked="false">午间模式</button>
+          <button id="monitor-toggle" type="button">监视模式</button>
+          <button id="proxy-toggle" type="button">启动代理</button>
+        </div>
+      </header>
+
+      <section class="metrics-grid" aria-label="用量概览">
+        <article class="metric">
+          <span data-i18n="today">今日</span>
+          <strong id="today-cost">¥0.0000</strong>
+          <small id="today-requests">0 次请求</small>
+        </article>
+        <article class="metric">
+          <span data-i18n="thisMonth">本月</span>
+          <strong id="month-cost">¥0.0000</strong>
+          <small id="month-requests">0 次请求</small>
+        </article>
+        <article class="metric">
+          <span data-i18n="todayTokens">今日 Tokens</span>
+          <strong id="today-tokens">0</strong>
+          <small id="month-tokens">本月 0</small>
+        </article>
+        <article class="metric alert">
+          <span data-i18n="errors">错误</span>
+          <strong id="error-count">0</strong>
+          <small data-i18n="errorHint">失败或异常请求</small>
+        </article>
+      </section>
+
+      <section class="dashboard-grid">
+        <article class="panel">
+          <div class="panel-heading">
+            <div class="panel-heading-actions">
+              <h2 data-i18n="realtimeRequests">实时请求</h2>
+              <span id="event-count">0</span>
+            </div>
+          </div>
+          <div class="table-toolbar">
+            <button id="clear-history" type="button" class="danger-button">清除历史</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th data-i18n="time">时间</th>
+                  <th data-i18n="model">模型</th>
+                  <th data-i18n="key">Key</th>
+                  <th data-i18n="tokens">Tokens</th>
+                  <th data-i18n="cache">缓存</th>
+                  <th data-i18n="cost">费用</th>
+                  <th data-i18n="status">状态</th>
+                </tr>
+              </thead>
+              <tbody id="events-body"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <aside class="side-stack">
+          <article class="panel">
+            <div class="panel-heading">
+              <h2 data-i18n="modelSpend">模型花费</h2>
+            </div>
+            <div id="model-bars" class="bars"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-heading">
+              <h2 data-i18n="mostExpensive">最贵请求</h2>
+            </div>
+            <ol id="expensive-list" class="rank-list"></ol>
+          </article>
+        </aside>
+      </section>
+
+      <section class="settings-grid">
+        <article class="panel">
+          <div class="panel-heading">
+            <h2 data-i18n="proxySettings">代理设置</h2>
+            <div class="panel-heading-actions">
+              <button id="settings-save" type="button">保存</button>
+            </div>
+          </div>
+          <div class="form-grid">
+            <label>
+              <span data-i18n="baseUrl">Base URL</span>
+              <input id="base-url" type="url" />
+            </label>
+            <label>
+              <span data-i18n="localPort">本地端口</span>
+              <input id="proxy-port" type="number" min="1024" max="65535" />
+            </label>
+            <label>
+              <span data-i18n="dailyBudget">每日预算</span>
+              <input id="daily-budget" type="number" min="0" step="0.01" />
+            </label>
+            <label>
+              <span data-i18n="language">语言</span>
+              <select id="language">
+                <option value="zh-CN">中文</option>
+                <option value="en-US">English</option>
+              </select>
+            </label>
+            <div class="theme-row">
+              <span data-i18n="dashboardTheme">主界面模式</span>
+              <button id="settings-dashboard-theme-toggle" class="theme-switch" type="button" role="switch" aria-checked="false">午间模式</button>
+            </div>
+            <div class="theme-row">
+              <span data-i18n="monitorTheme">监视器模式</span>
+              <button id="settings-monitor-theme-toggle" class="theme-switch" type="button" role="switch" aria-checked="true">黑夜模式</button>
+            </div>
+            <label class="check-row">
+              <input id="notifications-enabled" type="checkbox" />
+              <span data-i18n="notifications">通知</span>
+            </label>
+            <label class="check-row">
+              <input id="auto-start" type="checkbox" />
+              <span data-i18n="autoStart">自动启动代理</span>
+            </label>
+          </div>
+        </article>
+
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

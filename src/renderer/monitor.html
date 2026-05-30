@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DeepSeek Monitor</title>
+    <link rel="stylesheet" href="./monitor.css" />
+  </head>
+  <body>
+    <main class="monitor-shell">
+      <header class="monitor-drag">
+        <div>
+          <span class="eyebrow">DeepSeek</span>
+          <strong id="monitor-status">idle</strong>
+        </div>
+        <div class="monitor-actions">
+          <button id="monitor-theme-toggle" class="monitor-theme-switch" type="button" role="switch" aria-checked="true">
+            Night
+          </button>
+          <button id="monitor-lock-toggle" class="monitor-theme-switch monitor-lock-toggle" type="button" aria-pressed="false">
+            Lock
+          </button>
+          <label class="opacity-control">
+            <span id="monitor-opacity-label">Opacity</span>
+            <input id="monitor-opacity-control" type="range" min="0" max="35" step="1" value="7" />
+            <output id="monitor-opacity-value">7%</output>
+          </label>
+          <button id="monitor-close" type="button" aria-label="Close monitor">&times;</button>
+        </div>
+      </header>
+
+      <section class="monitor-content">
+        <section class="hero-grid">
+          <div class="primary-stat">
+            <span id="monitor-today-label">Today Cost</span>
+            <strong id="monitor-cost">\u00A50.0000</strong>
+          </div>
+          <div class="rate-card">
+            <span id="monitor-hit-rate-label">Cache Hit Rate</span>
+            <strong id="monitor-hit-rate">0.0%</strong>
+          </div>
+        </section>
+
+        <section class="mini-grid">
+          <div>
+            <span id="monitor-tokens-label">Total Tokens</span>
+            <strong id="monitor-tokens">0</strong>
+          </div>
+          <div>
+            <span id="monitor-requests-label">Requests</span>
+            <strong id="monitor-requests">0</strong>
+          </div>
+          <div>
+            <span id="monitor-errors-label">Errors</span>
+            <strong id="monitor-errors">0</strong>
+          </div>
+        </section>
+
+        <section class="token-grid">
+          <div>
+            <span id="monitor-cache-hit-label">Cache Hit</span>
+            <strong id="monitor-cache-hit">0</strong>
+          </div>
+          <div>
+            <span id="monitor-cache-miss-label">Cache Miss</span>
+            <strong id="monitor-cache-miss">0</strong>
+          </div>
+          <div>
+            <span id="monitor-output-label">Output Tokens</span>
+            <strong id="monitor-output">0</strong>
+          </div>
+        </section>
+
+        <section class="model-section">
+          <div class="section-title">
+            <span id="monitor-model-title">Model Usage</span>
+            <span id="monitor-model-subtitle">Today only</span>
+          </div>
+          <div id="monitor-model-breakdown" class="model-list"></div>
+        </section>
+
+        <footer>
+          <span id="monitor-last-model">idle</span>
+          <span id="monitor-last-status">No requests</span>
+        </footer>
+      </section>
+    </main>
+
+    <script src="./monitor.js"></script>
+  </body>
+</html>
