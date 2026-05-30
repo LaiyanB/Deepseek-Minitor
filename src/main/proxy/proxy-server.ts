@@ -36,12 +36,6 @@ export function createProxyServer(options: ProxyServerOptions): Server {
       return;
     }
 
-    if (!clientRequest.url?.startsWith("/v1/")) {
-      clientResponse.writeHead(404, { "content-type": "application/json" });
-      clientResponse.end(JSON.stringify({ error: "Only /v1/* DeepSeek API paths are proxied." }));
-      return;
-    }
-
     const startedAt = Date.now();
     const requestBody = await readRequestBody(clientRequest);
     const metadata = extractRequestMetadata(clientRequest, requestBody);
