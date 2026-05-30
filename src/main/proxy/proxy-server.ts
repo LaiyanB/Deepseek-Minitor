@@ -210,14 +210,18 @@ async function forwardRequest(
           const responseBody = Buffer.concat(chunks);
           clientResponse.end();
           const usage = extractUsage(upstreamResponse, responseBody);
-          void recordUsage(
-            options,
-            metadata,
-            upstreamResponse.statusCode ?? 502,
-            startedAt,
-            usage,
-            upstreamResponse.statusCode && upstreamResponse.statusCode >= 400 ? "upstream_error" : undefined
-          );
+          // Only track actual chat API endpoints, not aux requests like /user/balance
+          const isChatPath = incomingPath.includes("/chat/completions") || incomingPath.includes("/messages");
+          if (isChatPath) {
+            void recordUsage(
+              options,
+              metadata,
+              upstreamResponse.statusCode ?? 502,
+              startedAt,
+              usage,
+              upstreamResponse.statusCode && upstreamResponse.statusCode >= 400 ? "upstream_error" : undefined
+            );
+          }
           resolve();
         });
       }
