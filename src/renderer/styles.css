@@ -119,6 +119,22 @@ button:hover {
   color: #fff;
 }
 
+.proxy-error {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #fef2f2;
+  border: 1px solid var(--red);
+  color: var(--red);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+:root[data-theme="dark"] .proxy-error {
+  background: #2d1b1b;
+}
+
 .toast {
   position: fixed;
   top: 20px;
@@ -140,6 +156,10 @@ button:hover {
 .toast.show {
   opacity: 1;
   transform: translateY(0);
+}
+
+.toast.toast-error {
+  background: var(--red);
 }
 
 .app-shell {

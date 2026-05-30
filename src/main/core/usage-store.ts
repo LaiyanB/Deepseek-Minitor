@@ -16,7 +16,9 @@ export interface UsageEvent {
 
 export interface UsageSummary {
   todayCostCny: number;
+  todayCostUsd: number;
   monthCostCny: number;
+  monthCostUsd: number;
   todayRequests: number;
   monthRequests: number;
   todayTokens: number;
@@ -91,8 +93,10 @@ export function summarizeUsage(events: UsageEvent[], now = new Date()): UsageSum
   const month = trackedEvents.filter((event) => event.timestamp.startsWith(monthPrefix));
 
   return {
-    todayCostCny: sumCost(today),
-    monthCostCny: sumCost(month),
+    todayCostCny: sumCost(today, "costCny"),
+    todayCostUsd: sumCost(today, "costUsd"),
+    monthCostCny: sumCost(month, "costCny"),
+    monthCostUsd: sumCost(month, "costUsd"),
     todayRequests: today.length,
     monthRequests: month.length,
     todayTokens: sumTokens(today),
@@ -126,15 +130,16 @@ function sanitizeUsageEvent(event: UsageEvent): UsageEvent {
       ? {
           model: event.cost.model,
           currency: event.cost.currency,
-          costCny: event.cost.costCny
+          costCny: event.cost.costCny,
+          costUsd: event.cost.costUsd
         }
       : null,
     ...(event.errorType ? { errorType: event.errorType } : {})
   };
 }
 
-function sumCost(events: UsageEvent[]): number {
-  return Math.round(events.reduce((sum, event) => sum + (event.cost?.costCny ?? 0), 0) * 1_000_000) / 1_000_000;
+function sumCost(events: UsageEvent[], field: "costCny" | "costUsd"): number {
+  return Math.round(events.reduce((sum, event) => sum + (event.cost?.[field] ?? 0), 0) * 1_000_000) / 1_000_000;
 }
 
 function sumTokens(events: UsageEvent[]): number {

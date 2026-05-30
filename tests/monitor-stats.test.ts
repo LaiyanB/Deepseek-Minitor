@@ -19,7 +19,7 @@ describe("createMonitorStats", () => {
           promptCacheHitTokens: 5,
           promptCacheMissTokens: 5
         },
-        cost: { model: "deepseek-v4-flash", currency: "CNY", costCny: 9 }
+        cost: { model: "deepseek-v4-flash", currency: "CNY", costCny: 9, costUsd: 0 }
       },
       {
         id: "today",
@@ -35,7 +35,7 @@ describe("createMonitorStats", () => {
           promptCacheHitTokens: 70,
           promptCacheMissTokens: 30
         },
-        cost: { model: "deepseek-v4-pro", currency: "CNY", costCny: 0.12 }
+        cost: { model: "deepseek-v4-pro", currency: "CNY", costCny: 0.12, costUsd: 0 }
       },
       {
         id: "error",
@@ -88,7 +88,7 @@ describe("createMonitorStats", () => {
           promptCacheHitTokens: 800,
           promptCacheMissTokens: 200
         },
-        cost: { model: "deepseek-v4-flash", currency: "CNY", costCny: 0.002 }
+        cost: { model: "deepseek-v4-flash", currency: "CNY", costCny: 0.002, costUsd: 0 }
       },
       {
         id: "pro",
@@ -104,7 +104,7 @@ describe("createMonitorStats", () => {
           promptCacheHitTokens: 150,
           promptCacheMissTokens: 450
         },
-        cost: { model: "deepseek-v4-pro", currency: "CNY", costCny: 0.004 }
+        cost: { model: "deepseek-v4-pro", currency: "CNY", costCny: 0.004, costUsd: 0 }
       }
     ];
 
@@ -123,7 +123,8 @@ describe("createMonitorStats", () => {
         cacheMissTokens: 200,
         outputTokens: 250,
         cacheHitRate: 0.8,
-        costCny: 0.002
+        costCny: 0.002,
+        costUsd: 0
       },
       {
         model: "deepseek-v4-pro",
@@ -133,7 +134,8 @@ describe("createMonitorStats", () => {
         cacheMissTokens: 450,
         outputTokens: 400,
         cacheHitRate: 0.25,
-        costCny: 0.004
+        costCny: 0.004,
+        costUsd: 0
       }
     ]);
   });

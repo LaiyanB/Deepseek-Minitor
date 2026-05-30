@@ -39,7 +39,8 @@ describe("UsageStore", () => {
       cost: {
         model: "deepseek-v4-flash",
         currency: "CNY",
-        costCny: 0.000012
+        costCny: 0.000012,
+        costUsd: 0
       }
     });
 

@@ -62,6 +62,7 @@ const monitorEl = {
   shell: document.querySelector(".monitor-shell"),
   status: document.querySelector("#monitor-status"),
   themeToggle: document.querySelector("#monitor-theme-toggle"),
+  currencyToggle: document.querySelector("#monitor-currency-toggle"),
   lockToggle: document.querySelector("#monitor-lock-toggle"),
   opacityLabel: document.querySelector("#monitor-opacity-label"),
   opacityControl: document.querySelector("#monitor-opacity-control"),
@@ -101,6 +102,10 @@ monitorEl.close.addEventListener("click", () => {
 
 monitorEl.themeToggle.addEventListener("click", () => {
   void toggleMonitorTheme();
+});
+
+monitorEl.currencyToggle.addEventListener("click", () => {
+  void toggleCurrency();
 });
 
 monitorEl.lockToggle.addEventListener("click", () => {
@@ -146,10 +151,11 @@ function renderMonitor() {
   renderTheme();
   renderOpacity();
   renderLanguage();
+  renderCurrency();
   renderLockState();
   monitorEl.status.textContent = monitorSnapshot.proxy.running ? mt("running") : mt("stopped");
-  monitorEl.cost.textContent = money(stats.todayCostCny);
-  monitorEl.cost.title = `≈ ${moneyUsd(stats.todayCostCny / USD_RATE)}`;
+  const cur = monitorSnapshot.settings.currency ?? "CNY";
+  monitorEl.cost.textContent = formatCost(stats.todayCostCny, stats.todayCostUsd, cur);
   monitorEl.hitRate.textContent = percent(stats.cacheHitRate);
   monitorEl.tokens.textContent = integer(stats.todayTokens);
   monitorEl.requests.textContent = integer(stats.todayRequests);
@@ -313,7 +319,7 @@ function renderModelBreakdown(rows) {
         <article class="model-card">
           <div class="model-head">
             <strong>${escapeHtml(shortModel(row.model))}</strong>
-            <span>${money(row.costCny)}</span>
+            <span>${formatCost(row.costCny, row.costUsd, monitorSnapshot?.settings?.currency ?? "CNY")}</span>
           </div>
           <div class="model-meter" aria-hidden="true">
             <div style="width: ${Math.max(row.cacheHitRate * 100, row.cacheHitTokens ? 4 : 0)}%"></div>
@@ -332,14 +338,16 @@ function renderModelBreakdown(rows) {
     .join("");
 }
 
-const USD_RATE = 7.2;
+const CNY_USD_RATE = 7.14;
 
 function money(value) {
   return `¥${Number(value ?? 0).toFixed(4)}`;
 }
 
-function moneyUsd(value) {
-  return `$${Number(value ?? 0).toFixed(4)}`;
+function formatCost(cny, usd, currency) {
+  const cnyVal = Number(cny ?? 0);
+  if (currency === "USD") return `$${(cnyVal / CNY_USD_RATE).toFixed(4)}`;
+  return `¥${cnyVal.toFixed(4)}`;
 }
 
 function integer(value) {
@@ -360,6 +368,25 @@ function monitorLanguage() {
 
 function mt(key) {
   return monitorMessages[monitorLanguage()][key] ?? key;
+}
+
+function renderCurrency() {
+  const cur = monitorSnapshot?.settings?.currency ?? "CNY";
+  monitorEl.currencyToggle.textContent = cur === "USD" ? "$" : "¥";
+  monitorEl.currencyToggle.setAttribute("aria-label", cur === "USD" ? "Switch to CNY" : "Switch to USD");
+}
+
+async function toggleCurrency() {
+  if (!monitorSnapshot) {
+    return;
+  }
+
+  const next = monitorSnapshot.settings.currency === "USD" ? "CNY" : "USD";
+  monitorSnapshot = await window.deepseekMonitor.saveSettings({
+    ...monitorSnapshot.settings,
+    currency: next
+  });
+  renderMonitor();
 }
 
 function renderLanguage() {

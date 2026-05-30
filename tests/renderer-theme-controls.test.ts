@@ -39,12 +39,15 @@ function createSnapshot(settings: {
       autoStartProxy: true,
       monitorOpacity: 0.93,
       monitorClickThroughLocked: false,
+      currency: "CNY",
       ...settings
     },
     pricing: { models: {} },
     summary: {
       todayCostCny: 0,
+      todayCostUsd: 0,
       monthCostCny: 0,
+      monthCostUsd: 0,
       todayRequests: 0,
       monthRequests: 0,
       todayTokens: 0,
@@ -53,6 +56,7 @@ function createSnapshot(settings: {
     },
     monitor: {
       todayCostCny: 0,
+      todayCostUsd: 0,
       cacheHitRate: 0,
       todayTokens: 0,
       todayRequests: 0,

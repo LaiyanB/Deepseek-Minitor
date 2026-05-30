@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { createDefaultPricing, type PricingConfig } from "./pricing";
+import { logError } from "./log";
 
 export interface AppSettings {
   deepseekBaseUrl: string;
@@ -9,6 +10,7 @@ export interface AppSettings {
   notificationsEnabled: boolean;
   autoStartProxy: boolean;
   language: AppLanguage;
+  currency: "CNY" | "USD";
   dashboardDarkMode: boolean;
   monitorDarkMode: boolean;
   monitorOpacity: number;
@@ -46,11 +48,16 @@ export class ConfigStore {
       const raw = await readFile(filePath, "utf8");
       return JSON.parse(raw.replace(/^\uFEFF/, "")) as T;
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-        throw error;
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        // File doesn't exist yet — create with defaults
+        await this.writeJson(filePath, fallback);
+        return fallback;
       }
 
-      await this.writeJson(filePath, fallback);
+      // Corrupted file (e.g. partial write from a crash)
+      // Use defaults in memory but DON'T overwrite the file on disk,
+      // so the user's original settings aren't silently lost.
+      logError(`Config file corrupted, using defaults: ${filePath}`, error);
       return fallback;
     }
   }
@@ -69,6 +76,7 @@ export function createDefaultSettings(): AppSettings {
     notificationsEnabled: true,
     autoStartProxy: true,
     language: "zh-CN",
+    currency: "CNY",
     dashboardDarkMode: false,
     monitorDarkMode: true,
     monitorOpacity: 0.93,
@@ -87,6 +95,7 @@ function normalizeSettings(settings: Partial<AppSettings>): AppSettings {
     notificationsEnabled: Boolean(settings.notificationsEnabled),
     autoStartProxy: Boolean(settings.autoStartProxy),
     language: settings.language === "en-US" ? "en-US" : "zh-CN",
+    currency: settings.currency === "USD" ? "USD" : "CNY",
     dashboardDarkMode: Boolean(settings.dashboardDarkMode),
     monitorDarkMode: settings.monitorDarkMode === undefined ? true : Boolean(settings.monitorDarkMode),
     monitorOpacity: normalizeMonitorOpacity(settings.monitorOpacity),

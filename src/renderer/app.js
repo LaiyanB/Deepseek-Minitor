@@ -30,7 +30,7 @@ const messages = {
     nightMode: "黑夜模式",
     notifications: "通知",
     autoStart: "自动启动代理",
-    pricing: "价格表",
+    currency: "显示货币",
     running: "运行中",
     stopped: "已停止",
     startProxy: "启动代理",
@@ -75,7 +75,7 @@ const messages = {
     nightMode: "Night mode",
     notifications: "Notifications",
     autoStart: "Auto-start proxy",
-    pricing: "Pricing",
+    currency: "Currency",
     running: "Running",
     stopped: "Stopped",
     startProxy: "Start Proxy",
@@ -113,6 +113,7 @@ const el = {
   expensiveList: document.querySelector("#expensive-list"),
   baseUrlProvider: document.querySelector("#base-url-provider"),
   baseUrlCustom: document.querySelector("#base-url-custom"),
+  currency: document.querySelector("#currency"),
   proxyPort: document.querySelector("#proxy-port"),
   dailyBudget: document.querySelector("#daily-budget"),
   language: document.querySelector("#language"),
@@ -130,10 +131,14 @@ window.deepseekMonitor.onSnapshotUpdated((nextSnapshot) => {
 });
 
 el.proxyToggle.addEventListener("click", async () => {
-  if (snapshot?.proxy.running) {
-    await window.deepseekMonitor.stopProxy();
-  } else {
-    await window.deepseekMonitor.startProxy();
+  try {
+    if (snapshot?.proxy.running) {
+      await window.deepseekMonitor.stopProxy();
+    } else {
+      await window.deepseekMonitor.startProxy();
+    }
+  } catch (error) {
+    console.error("Proxy toggle failed:", error);
   }
   snapshot = await window.deepseekMonitor.getSnapshot();
   render();
@@ -170,18 +175,29 @@ el.settingsSave.addEventListener("click", async () => {
   const baseUrl = el.baseUrlProvider.value === "__custom__"
     ? el.baseUrlCustom.value.trim()
     : el.baseUrlProvider.value;
-  snapshot = await window.deepseekMonitor.saveSettings({
-    ...snapshot.settings,
-    deepseekBaseUrl: baseUrl,
-    proxyPort: Number(el.proxyPort.value),
-    dailyBudgetCny: Number(el.dailyBudget.value),
-    language: el.language.value,
-    notificationsEnabled: el.notificationsEnabled.checked,
-    autoStartProxy: el.autoStart.checked
-  });
-  render();
-
-  showToast(t("saved"));
+  try {
+    snapshot = await window.deepseekMonitor.saveSettings({
+      ...snapshot.settings,
+      deepseekBaseUrl: baseUrl,
+      proxyPort: Number(el.proxyPort.value),
+      dailyBudgetCny: Number(el.dailyBudget.value),
+      language: el.language.value,
+      currency: el.currency.value,
+      notificationsEnabled: el.notificationsEnabled.checked,
+      autoStartProxy: el.autoStart.checked
+    });
+    render();
+    if (snapshot.proxyError) {
+      showToast("⚠ " + snapshot.proxyError, true);
+    } else {
+      showToast(t("saved"));
+    }
+  } catch (error) {
+    console.error("Settings save failed:", error);
+    snapshot = await window.deepseekMonitor.getSnapshot();
+    render();
+    showToast("⚠ 设置保存失败" + (error?.message ? "：" + error.message : ""), true);
+  }
 });
 
 el.clearHistory.addEventListener("click", async () => {
@@ -234,6 +250,16 @@ function renderProxy() {
   el.proxyPill.classList.toggle("running", snapshot.proxy.running);
   el.proxyToggle.textContent = snapshot.proxy.running ? t("pauseProxy") : t("startProxy");
   el.monitorToggle.textContent = t("monitorMode");
+
+  const errorEl = document.querySelector("#proxy-error");
+  if (errorEl) {
+    if (snapshot.proxyError) {
+      errorEl.textContent = snapshot.proxyError;
+      errorEl.hidden = false;
+    } else {
+      errorEl.hidden = true;
+    }
+  }
 }
 
 function renderLanguage() {
@@ -249,10 +275,9 @@ function renderLanguage() {
 
 function renderSummary() {
   const sum = snapshot.summary;
-  el.todayCost.textContent = money(sum.todayCostCny);
-  el.todayCost.title = `≈ ${moneyUsd(sum.todayCostCny / USD_RATE)}`;
-  el.monthCost.textContent = money(sum.monthCostCny);
-  el.monthCost.title = `≈ ${moneyUsd(sum.monthCostCny / USD_RATE)}`;
+  const cur = snapshot.settings.currency ?? "CNY";
+  el.todayCost.textContent = formatCost(sum.todayCostCny, sum.todayCostUsd, cur);
+  el.monthCost.textContent = formatCost(sum.monthCostCny, sum.monthCostUsd, cur);
   el.todayRequests.textContent = `${sum.todayRequests} ${t("requests")}`;
   el.monthRequests.textContent = `${snapshot.summary.monthRequests} ${t("requests")}`;
   el.todayTokens.textContent = integer(snapshot.summary.todayTokens);
@@ -282,7 +307,7 @@ function renderEvents() {
           <td>${escapeHtml(event.apiKeyFingerprint)}</td>
           <td>${usage ? integer(usage.totalTokens) : "n/a"}</td>
           <td>${cacheText}</td>
-          <td>${event.cost ? money(event.cost.costCny) : "n/a"}</td>
+          <td>${event.cost ? formatCost(event.cost.costCny, event.cost.costUsd, snapshot.settings.currency ?? "CNY") : "n/a"}</td>
           <td class="${statusClass}">${event.statusCode}</td>
         </tr>
       `;
@@ -291,23 +316,29 @@ function renderEvents() {
 }
 
 function renderModelBars() {
+  const cur = snapshot.settings.currency ?? "CNY";
   const totals = new Map();
   for (const event of snapshot.events) {
-    totals.set(event.model, (totals.get(event.model) ?? 0) + (event.cost?.costCny ?? 0));
+    const key = event.model;
+    const prev = totals.get(key) ?? { cny: 0, usd: 0 };
+    totals.set(key, { cny: prev.cny + (event.cost?.costCny ?? 0), usd: prev.usd + (event.cost?.costUsd ?? 0) });
   }
 
-  const rows = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
-  const max = Math.max(...rows.map(([, value]) => value), 0.000001);
+  const rows = [...totals.entries()]
+    .sort((a, b) => b[1].cny - a[1].cny)
+    .slice(0, 5);
+  const maxVal = Math.max(...rows.map(([, v]) => v.cny / CNY_USD_RATE), 0.000001);
 
   el.modelBars.innerHTML = rows.length
     ? rows
-        .map(([model, value]) => {
-          const width = Math.max((value / max) * 100, 2);
+        .map(([model, v]) => {
+          const displayVal = v.cny / CNY_USD_RATE;
+          const width = Math.max((displayVal / maxVal) * 100, 2);
           return `
             <div class="bar-row">
               <span>${escapeHtml(model)}</span>
               <div class="bar-track"><div class="bar-fill" style="width: ${width}%"></div></div>
-              <strong>${money(value)}</strong>
+              <strong>${formatCost(v.cny, v.usd, cur)}</strong>
             </div>
           `;
         })
@@ -316,6 +347,7 @@ function renderModelBars() {
 }
 
 function renderExpensiveRequests() {
+  const cur = snapshot.settings.currency ?? "CNY";
   const rows = [...snapshot.events]
     .filter((event) => event.cost)
     .sort((a, b) => b.cost.costCny - a.cost.costCny)
@@ -326,7 +358,7 @@ function renderExpensiveRequests() {
         .map(
           (event) => `
             <li>
-              <strong>${money(event.cost.costCny)}</strong>
+              <strong>${formatCost(event.cost.costCny, event.cost.costUsd, cur)}</strong>
               <span>${escapeHtml(event.model)} · ${time(event.timestamp)} · ${integer(event.usage?.totalTokens ?? 0)} tokens</span>
             </li>
           `
@@ -349,6 +381,7 @@ function renderSettings() {
   el.proxyPort.value = String(snapshot.settings.proxyPort);
   el.dailyBudget.value = String(snapshot.settings.dailyBudgetCny);
   el.language.value = snapshot.settings.language ?? "zh-CN";
+  el.currency.value = snapshot.settings.currency ?? "CNY";
   renderThemeSwitch(el.settingsDashboardThemeToggle, isDashboardDark());
   renderThemeSwitch(el.settingsMonitorThemeToggle, isMonitorDark());
   el.notificationsEnabled.checked = snapshot.settings.notificationsEnabled;
@@ -392,14 +425,16 @@ function renderThemeSwitch(button, isDark) {
   button.setAttribute("aria-checked", String(isDark));
 }
 
-const USD_RATE = 7.2;
+const CNY_USD_RATE = 7.14;
 
 function money(value) {
   return `¥${Number(value ?? 0).toFixed(4)}`;
 }
 
-function moneyUsd(value) {
-  return `$${Number(value ?? 0).toFixed(4)}`;
+function formatCost(cny, usd, currency) {
+  const cnyVal = Number(cny ?? 0);
+  if (currency === "USD") return `$${(cnyVal / CNY_USD_RATE).toFixed(4)}`;
+  return `¥${cnyVal.toFixed(4)}`;
 }
 
 function language() {
@@ -418,18 +453,18 @@ function time(timestamp) {
   return new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
-function showToast(message) {
+function showToast(message, isError = false) {
   let toast = document.querySelector("#toast");
   if (!toast) {
     toast = document.createElement("div");
     toast.id = "toast";
-    toast.className = "toast";
     document.body.appendChild(toast);
   }
   toast.textContent = message;
+  toast.className = "toast" + (isError ? " toast-error" : "");
   toast.classList.add("show");
   clearTimeout(toast._hideTimer);
-  toast._hideTimer = setTimeout(() => toast.classList.remove("show"), 2000);
+  toast._hideTimer = setTimeout(() => toast.classList.remove("show"), 3000);
 }
 
 function escapeHtml(value) {

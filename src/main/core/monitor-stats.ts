@@ -2,6 +2,7 @@ import { isTrackedUsageEvent, type UsageEvent } from "./usage-store";
 
 export interface MonitorStats {
   todayCostCny: number;
+  todayCostUsd: number;
   todayTokens: number;
   todayRequests: number;
   todayErrors: number;
@@ -23,6 +24,7 @@ export interface MonitorModelStats {
   outputTokens: number;
   cacheHitRate: number;
   costCny: number;
+  costUsd: number;
 }
 
 export function createMonitorStats(events: UsageEvent[], now = new Date()): MonitorStats {
@@ -36,6 +38,7 @@ export function createMonitorStats(events: UsageEvent[], now = new Date()): Moni
 
   return {
     todayCostCny: round(todayEvents.reduce((sum, event) => sum + (event.cost?.costCny ?? 0), 0)),
+    todayCostUsd: round(todayEvents.reduce((sum, event) => sum + (event.cost?.costUsd ?? 0), 0)),
     todayTokens: todayEvents.reduce((sum, event) => sum + (event.usage?.totalTokens ?? 0), 0),
     todayRequests: todayEvents.length,
     todayErrors: todayEvents.filter((event) => event.statusCode >= 400 || event.errorType).length,
@@ -64,7 +67,8 @@ function createModelBreakdown(events: UsageEvent[]): MonitorModelStats[] {
         cacheMissTokens: 0,
         outputTokens: 0,
         cacheHitRate: 0,
-        costCny: 0
+        costCny: 0,
+        costUsd: 0
       };
 
     current.requests += 1;
@@ -73,6 +77,7 @@ function createModelBreakdown(events: UsageEvent[]): MonitorModelStats[] {
     current.cacheMissTokens += event.usage?.promptCacheMissTokens ?? 0;
     current.outputTokens += event.usage?.completionTokens ?? 0;
     current.costCny = round(current.costCny + (event.cost?.costCny ?? 0));
+    current.costUsd = round(current.costUsd + (event.cost?.costUsd ?? 0));
     current.cacheHitRate = hitRate(current.cacheHitTokens, current.cacheMissTokens);
     models.set(model, current);
   }

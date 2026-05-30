@@ -9,6 +9,7 @@ import { createDefaultPricing, type PricingConfig } from "./core/pricing";
 import { tryAutoStartProxy } from "./core/startup";
 import { isTrackedUsageEvent, summarizeUsage, UsageStore, type UsageEvent, type UsageStoreLike } from "./core/usage-store";
 import { createProxyServer } from "./proxy/proxy-server";
+import { initLogger, logError } from "./core/log";
 
 interface ProxyState {
   running: boolean;
@@ -27,6 +28,7 @@ let usageStore: UsageStore;
 let notifyingStore: UsageStoreLike;
 let budgetNotificationSent = false;
 let isQuitting = false;
+let proxyError: string | null = null;
 let monitorTemporarilyInteractive = false;
 const isSmokeTest = process.argv.includes("--smoke-test");
 const hasSingleInstanceLock = isSmokeTest || app.requestSingleInstanceLock();
@@ -40,6 +42,7 @@ if (!hasSingleInstanceLock) {
 
   void app.whenReady().then(async () => {
     const userData = app.getPath("userData");
+    initLogger(process.cwd());
     configStore = new ConfigStore({
       pricingPath: join(userData, "pricing.json"),
       settingsPath: join(userData, "settings.json")
@@ -56,7 +59,7 @@ if (!hasSingleInstanceLock) {
     registerIpc();
 
     await tryAutoStartProxy(settings.autoStartProxy, () => startProxy(), (error) => {
-      console.error("Failed to auto-start proxy", error);
+      logError("Auto-start proxy failed", error);
     });
 
     if (isSmokeTest) {
@@ -68,6 +71,8 @@ if (!hasSingleInstanceLock) {
     createTray();
     createWindow();
     registerShortcuts();
+  }).catch((error) => {
+    logError("App initialization failed", error);
   });
 }
 
@@ -184,7 +189,21 @@ function updateTrayMenu(): void {
           ? "启动代理"
           : "Start proxy",
       click: () => {
-        void (proxy.running ? stopProxy() : startProxy());
+        if (proxy.running) {
+          void stopProxy();
+        } else {
+          startProxy().catch((error) => {
+            proxyError = `代理启动失败：端口 ${settings.proxyPort} 不可用`;
+            if (Notification.isSupported()) {
+              new Notification({
+                title: "DeepSeek Usage Monitor",
+                body: proxyError ?? String(error)
+              }).show();
+            }
+            updateTrayMenu();
+            broadcastSnapshot();
+          });
+        }
       }
     },
     { type: "separator" as const },
@@ -252,13 +271,21 @@ function registerIpc(): void {
     applyMonitorInteractionState();
   });
   ipcMain.handle("settings:save", async (_event, nextSettings: AppSettings) => {
+    const wasRunning = Boolean(proxyServer?.listening);
+
+    if (wasRunning) {
+      await stopProxy();
+    }
+
+    proxyError = null;
     settings = nextSettings;
+
+    if (wasRunning) {
+      await startProxy(nextSettings.proxyPort);
+    }
+
     await configStore.saveSettings(settings);
     applyMonitorInteractionState();
-    if (proxyServer) {
-      await stopProxy();
-      await startProxy();
-    }
     broadcastSnapshot();
     return createSnapshot();
   });
@@ -283,15 +310,21 @@ async function createSnapshot() {
     proxy: getProxyState(),
     settings,
     pricing,
+    proxyError,
     summary: summarizeUsage(events),
     monitor: createMonitorStats(events),
     events: recentEvents
   };
 }
 
-async function startProxy(): Promise<ProxyState> {
-  if (proxyServer) {
+async function startProxy(tryPort = settings.proxyPort): Promise<ProxyState> {
+  if (proxyServer?.listening) {
     return getProxyState();
+  }
+
+  // Clean up any orphaned server from a previous failed listen
+  if (proxyServer) {
+    proxyServer = null;
   }
 
   proxyServer = createProxyServer({
@@ -301,10 +334,35 @@ async function startProxy(): Promise<ProxyState> {
     language: settings.language
   });
 
-  await new Promise<void>((resolve, reject) => {
-    proxyServer?.once("error", reject);
-    proxyServer?.listen(settings.proxyPort, "0.0.0.0", () => resolve());
-  });
+  try {
+    await new Promise<void>((resolve, reject) => {
+      proxyServer?.once("error", (err) => {
+        proxyServer = null;
+        reject(err);
+      });
+      proxyServer?.listen(tryPort, "0.0.0.0", () => resolve());
+    });
+  } catch {
+    // Port conflict — fall back to OS-assigned free port
+    proxyServer = null;
+
+    proxyServer = createProxyServer({
+      deepseekBaseUrl: settings.deepseekBaseUrl,
+      store: notifyingStore,
+      pricing,
+      language: settings.language
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      proxyServer?.once("error", (err) => {
+        proxyServer = null;
+        reject(err);
+      });
+      proxyServer?.listen(0, "0.0.0.0", () => resolve());
+    });
+
+    proxyError = `端口 ${tryPort} 被占用，已自动切换到随机端口`;
+  }
 
   updateTrayMenu();
   broadcastSnapshot();
@@ -312,6 +370,7 @@ async function startProxy(): Promise<ProxyState> {
 }
 
 async function stopProxy(): Promise<ProxyState> {
+  proxyError = null;
   const server = proxyServer;
   proxyServer = null;
 

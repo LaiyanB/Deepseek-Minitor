@@ -5,6 +5,7 @@ import { URL } from "node:url";
 import { calculateUsageCost, type PricingConfig, type UsageSnapshot } from "../core/pricing";
 import type { AppLanguage } from "../core/config-store";
 import type { UsageStoreLike } from "../core/usage-store";
+import { logError } from "../core/log";
 
 export interface ProxyServerOptions {
   deepseekBaseUrl: string;
@@ -28,30 +29,49 @@ interface UpstreamUsage {
 
 export function createProxyServer(options: ProxyServerOptions): Server {
   return createServer(async (clientRequest, clientResponse) => {
-    if (clientRequest.method === "GET" && (clientRequest.url === "/" || clientRequest.url === "/health")) {
-      const capturedRequests = (await options.store.list()).length;
-      const host = clientRequest.headers.host ?? "127.0.0.1:8716";
-      clientResponse.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-      clientResponse.end(createStatusPage(options.language ?? "zh-CN", capturedRequests, host));
-      return;
+    try {
+      if (clientRequest.method === "GET" && (clientRequest.url === "/" || clientRequest.url === "/health")) {
+        const capturedRequests = (await options.store.list()).length;
+        const host = clientRequest.headers.host ?? "127.0.0.1:8716";
+        clientResponse.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+        clientResponse.end(createStatusPage(options.language ?? "zh-CN", capturedRequests, host));
+        return;
+      }
+
+      if (clientRequest.method === "OPTIONS") {
+        clientResponse.writeHead(200);
+        clientResponse.end();
+        return;
+      }
+
+      // Auto-prepend /v1 if client sends paths without it (e.g. base_url = "http://127.0.0.1:8716/v1")
+      if (clientRequest.url && !clientRequest.url.startsWith("/v1")) {
+        clientRequest.url = "/v1" + (clientRequest.url.startsWith("/") ? "" : "/") + clientRequest.url;
+      }
+
+      const startedAt = Date.now();
+      const requestBody = await readRequestBody(clientRequest);
+      const metadata = extractRequestMetadata(clientRequest, requestBody);
+
+      try {
+        await forwardRequest(options, clientRequest, clientResponse, requestBody, metadata, startedAt);
+      } catch (error) {
+        clientResponse.writeHead(502, { "content-type": "application/json" });
+        clientResponse.end(JSON.stringify({ error: "DeepSeek upstream request failed." }));
+        void recordUsage(options, metadata, 502, startedAt, null, "upstream_request_failed");
+        logError("Upstream request failed", error);
+      }
+    } catch (error) {
+      logError("Proxy request handler error", error);
+      try {
+        if (!clientResponse.headersSent) {
+          clientResponse.writeHead(500, { "content-type": "application/json" });
+          clientResponse.end(JSON.stringify({ error: "Internal proxy error." }));
+        }
+      } catch {
+        // Response already closed or client disconnected — nothing to do
+      }
     }
-
-    if (!clientRequest.url?.startsWith("/v1/")) {
-      clientResponse.writeHead(404, { "content-type": "application/json" });
-      clientResponse.end(JSON.stringify({ error: "Not found" }));
-      return;
-    }
-
-    const startedAt = Date.now();
-    const requestBody = await readRequestBody(clientRequest);
-    const metadata = extractRequestMetadata(clientRequest, requestBody);
-
-    forwardRequest(options, clientRequest, clientResponse, requestBody, metadata, startedAt).catch((error) => {
-      clientResponse.writeHead(502, { "content-type": "application/json" });
-      clientResponse.end(JSON.stringify({ error: "DeepSeek upstream request failed." }));
-      void recordUsage(options, metadata, 502, startedAt, null, "upstream_request_failed");
-      console.error(error);
-    });
   });
 }
 
@@ -61,8 +81,8 @@ function createStatusPage(language: AppLanguage, capturedRequests: number, host:
   const running = zh ? "代理正在运行。" : "Proxy is running.";
   const captured = zh ? `已捕获请求数：${capturedRequests}` : `Captured requests: ${capturedRequests}`;
   const description = zh
-    ? "将这个本地地址设置为 DeepSeek 兼容客户端的 API base URL。代理只转发 /v1/* API 请求，并且只记录用量元数据。"
-    : "Use this local address as your DeepSeek-compatible API base URL. The proxy only forwards /v1/* API requests and records metadata-only usage.";
+    ? "将这个本地地址设置为 DeepSeek 兼容客户端的 API base URL。代理自动处理 /v1/* API 请求，并且只记录用量元数据。"
+    : "Use this local address as your DeepSeek-compatible API base URL. The proxy automatically handles /v1/* API requests and records metadata-only usage.";
   const notCaptured = zh
     ? "网页聊天和官方 App 不会被统计；只有 API 客户端请求这个本地代理时才会记录用量。"
     : "Web chat and the official app are not counted; only API clients pointed at this local proxy are recorded.";
@@ -153,8 +173,20 @@ async function forwardRequest(
   const upstreamUrl = new URL(basePath + incomingPath, baseUrl.origin);
   const transport = upstreamUrl.protocol === "https:" ? httpsRequest : httpRequest;
   const headers = { ...clientRequest.headers };
+  // Strip hop-by-hop headers that should not be forwarded
   delete headers.host;
+  delete headers["transfer-encoding"];
+  delete headers.connection;
+  delete headers["keep-alive"];
+  delete headers["proxy-connection"];
   headers["content-length"] = Buffer.byteLength(requestBody).toString();
+  // Anthropic-compatible endpoints use x-api-key; ensure it's set from Authorization
+  if (!headers["x-api-key"] && headers.authorization) {
+    const token = String(headers.authorization).replace(/^Bearer\s+/i, "").trim();
+    if (token) {
+      headers["x-api-key"] = token;
+    }
+  }
 
   await new Promise<void>((resolve, reject) => {
     const upstreamRequest = transport(
@@ -165,7 +197,9 @@ async function forwardRequest(
       },
       (upstreamResponse) => {
         const chunks: Buffer[] = [];
-        clientResponse.writeHead(upstreamResponse.statusCode ?? 502, upstreamResponse.headers);
+        const responseHeaders = { ...upstreamResponse.headers };
+        delete responseHeaders["transfer-encoding"];
+        clientResponse.writeHead(upstreamResponse.statusCode ?? 502, responseHeaders);
 
         upstreamResponse.on("data", (chunk: Buffer) => {
           chunks.push(chunk);
@@ -173,8 +207,8 @@ async function forwardRequest(
         });
 
         upstreamResponse.on("end", () => {
-          clientResponse.end();
           const responseBody = Buffer.concat(chunks);
+          clientResponse.end();
           const usage = extractUsage(upstreamResponse, responseBody);
           void recordUsage(
             options,

@@ -11,6 +11,9 @@ export interface ModelPricing {
   inputCacheHitCnyPerMillion: number;
   inputCacheMissCnyPerMillion: number;
   outputCnyPerMillion: number;
+  inputCacheHitUsdPerMillion: number;
+  inputCacheMissUsdPerMillion: number;
+  outputUsdPerMillion: number;
 }
 
 export interface PricingConfig {
@@ -24,6 +27,7 @@ export interface UsageCost {
   model: string;
   currency: "CNY";
   costCny: number;
+  costUsd: number;
 }
 
 const MILLION = 1_000_000;
@@ -31,19 +35,25 @@ const MILLION = 1_000_000;
 export function createDefaultPricing(): PricingConfig {
   return {
     currency: "CNY",
-    updatedAt: "2026-05-10",
+    updatedAt: "2026-05-31",
     models: {
       "deepseek-v4-flash": {
         displayName: "DeepSeek V4 Flash",
         inputCacheHitCnyPerMillion: 0.02,
         inputCacheMissCnyPerMillion: 1,
-        outputCnyPerMillion: 2
+        outputCnyPerMillion: 2,
+        inputCacheHitUsdPerMillion: 0.0028,
+        inputCacheMissUsdPerMillion: 0.14,
+        outputUsdPerMillion: 0.28
       },
       "deepseek-v4-pro": {
         displayName: "DeepSeek V4 Pro",
-        inputCacheHitCnyPerMillion: 0.02,
-        inputCacheMissCnyPerMillion: 1,
-        outputCnyPerMillion: 2
+        inputCacheHitCnyPerMillion: 0.026,
+        inputCacheMissCnyPerMillion: 3.11,
+        outputCnyPerMillion: 6.21,
+        inputCacheHitUsdPerMillion: 0.003625,
+        inputCacheMissUsdPerMillion: 0.435,
+        outputUsdPerMillion: 0.87
       }
     },
     aliases: {
@@ -65,16 +75,22 @@ export function calculateUsageCost(
     return null;
   }
 
-  const cacheHitCost =
+  const cacheHitCny =
     (usage.promptCacheHitTokens / MILLION) * modelPricing.inputCacheHitCnyPerMillion;
-  const cacheMissCost =
+  const cacheMissCny =
     (usage.promptCacheMissTokens / MILLION) * modelPricing.inputCacheMissCnyPerMillion;
-  const outputCost = (usage.completionTokens / MILLION) * modelPricing.outputCnyPerMillion;
+  const outputCny = (usage.completionTokens / MILLION) * modelPricing.outputCnyPerMillion;
+  const cacheHitUsd =
+    (usage.promptCacheHitTokens / MILLION) * modelPricing.inputCacheHitUsdPerMillion;
+  const cacheMissUsd =
+    (usage.promptCacheMissTokens / MILLION) * modelPricing.inputCacheMissUsdPerMillion;
+  const outputUsd = (usage.completionTokens / MILLION) * modelPricing.outputUsdPerMillion;
 
   return {
     model: canonicalModel,
     currency: pricing.currency,
-    costCny: roundCurrency(cacheHitCost + cacheMissCost + outputCost)
+    costCny: roundCurrency(cacheHitCny + cacheMissCny + outputCny),
+    costUsd: roundCurrency(cacheHitUsd + cacheMissUsd + outputUsd)
   };
 }
 

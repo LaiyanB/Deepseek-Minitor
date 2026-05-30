@@ -48,7 +48,7 @@ describe("proxy server", () => {
         promptCacheHitTokens: 1,
         promptCacheMissTokens: 0
       },
-      cost: { model: "deepseek-v4-flash", currency: "CNY", costCny: 0.000001 }
+      cost: { model: "deepseek-v4-flash", currency: "CNY", costCny: 0.000001, costUsd: 0 }
     });
     proxy = createProxyServer({
       deepseekBaseUrl: "http://127.0.0.1:65535",
