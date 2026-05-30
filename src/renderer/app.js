@@ -42,6 +42,7 @@ const messages = {
     noRequests: "暂无请求",
     noSpend: "暂无花费",
     noPriced: "暂无已计价请求",
+    saved: "✓ 已保存",
     clearHistory: "清除历史",
     clearHistoryConfirm: "确定要清除所有历史记录吗？此操作不可撤销。"
   },
@@ -86,6 +87,7 @@ const messages = {
     noRequests: "No requests yet",
     noSpend: "No spend yet",
     noPriced: "No priced requests yet",
+    saved: "✓ Saved",
     clearHistory: "Clear History",
     clearHistoryConfirm: "Are you sure you want to clear all history? This cannot be undone."
   }
@@ -178,6 +180,8 @@ el.settingsSave.addEventListener("click", async () => {
     autoStartProxy: el.autoStart.checked
   });
   render();
+
+  showToast(t("saved"));
 });
 
 el.clearHistory.addEventListener("click", async () => {
@@ -403,6 +407,20 @@ function integer(value) {
 
 function time(timestamp) {
   return new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+function showToast(message) {
+  let toast = document.querySelector("#toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "toast";
+    toast.className = "toast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.classList.add("show");
+  clearTimeout(toast._hideTimer);
+  toast._hideTimer = setTimeout(() => toast.classList.remove("show"), 2000);
 }
 
 function escapeHtml(value) {
